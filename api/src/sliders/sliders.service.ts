@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PublishStatus } from '@prisma/client';
+import { AuditAction, PublishStatus } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UpdateStatusDto } from '../common/dto/update-status.dto';
 import { paginationMeta } from '../common/utils/paginate';
@@ -9,7 +10,10 @@ import { UpdateSliderDto } from './dto/update-slider.dto';
 
 @Injectable()
 export class SlidersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   findPublished() {
     const now = new Date();
@@ -50,18 +54,40 @@ export class SlidersService {
   }
 
   update(id: string, dto: UpdateSliderDto, actorId?: string) {
-    return this.prisma.slider.update({
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.slider.findUnique({ where: { id }, include: { media: true } });
+      const slider = await tx.slider.update({
       where: { id },
       data: { ...dto, updatedById: actorId },
       include: { media: true },
     });
+      await this.auditService.log({
+        actorId,
+        action: AuditAction.UPDATE,
+        entityType: 'Slider',
+        entityId: id,
+        metadata: this.auditService.buildChangeMetadata(before ?? {}, slider),
+      });
+      return slider;
+    });
   }
 
   updateStatus(id: string, dto: UpdateStatusDto, actorId?: string) {
-    return this.prisma.slider.update({
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.slider.findUnique({ where: { id }, include: { media: true } });
+      const slider = await tx.slider.update({
       where: { id },
       data: { status: dto.status, updatedById: actorId },
       include: { media: true },
+    });
+      await this.auditService.log({
+        actorId,
+        action: this.statusAuditAction(dto.status),
+        entityType: 'Slider',
+        entityId: id,
+        metadata: this.auditService.buildChangeMetadata(before ?? {}, slider),
+      });
+      return slider;
     });
   }
 
@@ -70,5 +96,11 @@ export class SlidersService {
       where: { id },
       data: { deletedAt: new Date(), deletedById: actorId },
     });
+  }
+
+  private statusAuditAction(status: PublishStatus) {
+    if (status === PublishStatus.PUBLISHED) return AuditAction.PUBLISH;
+    if (status === PublishStatus.ARCHIVED) return AuditAction.ARCHIVE;
+    return AuditAction.UPDATE;
   }
 }

@@ -30,13 +30,11 @@ export class AdminDocumentsController {
   }
 
   @Patch(':id')
-  @Audit({ action: AuditAction.UPDATE, entityType: 'Document' })
   update(@Param('id') id: string, @Body() dto: UpdateDocumentDto, @CurrentUser() user: { id: string }) {
     return this.documentsService.update(id, dto, user.id);
   }
 
   @Patch(':id/status')
-  @Audit({ action: AuditAction.PUBLISH, entityType: 'Document' })
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto, @CurrentUser() user: { id: string }) {
     return this.documentsService.updateStatus(id, dto, user.id);
   }

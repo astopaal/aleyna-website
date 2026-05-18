@@ -20,10 +20,30 @@ export class AuthService {
 
   async login(dto: LoginDto, meta: { ipAddress?: string; userAgent?: string }) {
     const user = await this.usersService.findActiveByEmail(dto.email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      await this.auditService.log({
+        action: 'FAILED_LOGIN' as AuditAction,
+        entityType: 'User',
+        metadata: { email: dto.email, reason: 'USER_NOT_FOUND' },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const validPassword = await argon2.verify(user.passwordHash, dto.password);
-    if (!validPassword) throw new UnauthorizedException('Invalid credentials');
+    if (!validPassword) {
+      await this.auditService.log({
+        actorId: user.id,
+        action: 'FAILED_LOGIN' as AuditAction,
+        entityType: 'User',
+        entityId: user.id,
+        metadata: { email: dto.email, reason: 'INVALID_PASSWORD' },
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const tokens = await this.issueTokens(user.id, user.email, user.role, meta);
     await this.usersService.markLogin(user.id);

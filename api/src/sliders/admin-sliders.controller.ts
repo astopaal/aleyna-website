@@ -30,13 +30,11 @@ export class AdminSlidersController {
   }
 
   @Patch(':id')
-  @Audit({ action: AuditAction.UPDATE, entityType: 'Slider' })
   update(@Param('id') id: string, @Body() dto: UpdateSliderDto, @CurrentUser() user: { id: string }) {
     return this.slidersService.update(id, dto, user.id);
   }
 
   @Patch(':id/status')
-  @Audit({ action: AuditAction.PUBLISH, entityType: 'Slider' })
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto, @CurrentUser() user: { id: string }) {
     return this.slidersService.updateStatus(id, dto, user.id);
   }

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PublishStatus } from '@prisma/client';
+import { AuditAction, PublishStatus } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UpdateStatusDto } from '../common/dto/update-status.dto';
 import { paginationMeta } from '../common/utils/paginate';
@@ -10,7 +11,10 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   findPublished() {
     return this.prisma.category.findMany({
@@ -52,19 +56,35 @@ export class CategoriesService {
   }
 
   async update(id: string, dto: UpdateCategoryDto, actorId?: string) {
-    await this.ensureExists(id);
-    return this.prisma.category.update({
+    const before = await this.ensureExists(id);
+    const category = await this.prisma.category.update({
       where: { id },
       data: { ...dto, updatedById: actorId },
     });
+    await this.auditService.log({
+      actorId,
+      action: AuditAction.UPDATE,
+      entityType: 'Category',
+      entityId: id,
+      metadata: this.auditService.buildChangeMetadata(before, category),
+    });
+    return category;
   }
 
   async updateStatus(id: string, dto: UpdateStatusDto, actorId?: string) {
-    await this.ensureExists(id);
-    return this.prisma.category.update({
+    const before = await this.ensureExists(id);
+    const category = await this.prisma.category.update({
       where: { id },
       data: { status: dto.status, updatedById: actorId },
     });
+    await this.auditService.log({
+      actorId,
+      action: this.statusAuditAction(dto.status),
+      entityType: 'Category',
+      entityId: id,
+      metadata: this.auditService.buildChangeMetadata(before, category),
+    });
+    return category;
   }
 
   softDelete(id: string, actorId?: string) {
@@ -79,5 +99,12 @@ export class CategoriesService {
       where: { id, deletedAt: null },
     });
     if (!category) throw new NotFoundException('Category not found');
+    return category;
+  }
+
+  private statusAuditAction(status: PublishStatus) {
+    if (status === PublishStatus.PUBLISHED) return AuditAction.PUBLISH;
+    if (status === PublishStatus.ARCHIVED) return AuditAction.ARCHIVE;
+    return AuditAction.UPDATE;
   }
 }

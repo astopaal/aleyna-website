@@ -28,7 +28,6 @@ export class AdminUsersController {
   }
 
   @Patch(':id')
-  @Audit({ action: AuditAction.UPDATE, entityType: 'User' })
   update(@Param('id') id: string, @Body() dto: UpdateAdminUserDto, @CurrentUser() user: { id: string }) {
     return this.usersService.updateAdmin(id, dto, user.id);
   }

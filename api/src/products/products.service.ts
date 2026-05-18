@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, PublishStatus } from '@prisma/client';
+import { AuditAction, Prisma, PublishStatus } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { paginationMeta } from '../common/utils/paginate';
 import { slugify } from '../common/utils/slugify';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,7 +12,10 @@ import { serializeProduct } from './product.serializer';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   findPublished(query: ProductFilterDto) {
     return this.findMany(query, {
@@ -64,7 +68,7 @@ export class ProductsService {
   }
 
   async update(id: string, dto: UpdateProductDto, actorId?: string) {
-    await this.ensureExists(id);
+    const before = await this.ensureExists(id);
     const product = await this.prisma.$transaction(async (tx) => {
       if (dto.categoryIds) {
         await tx.productCategory.deleteMany({ where: { productId: id } });
@@ -102,15 +106,35 @@ export class ProductsService {
         include: this.includeRelations(),
       });
     });
+    await this.auditService.log({
+      actorId,
+      action: AuditAction.UPDATE,
+      entityType: 'Product',
+      entityId: id,
+      metadata: this.auditService.buildChangeMetadata(
+        serializeProduct(before),
+        serializeProduct(product),
+      ),
+    });
     return serializeProduct(product);
   }
 
   async updateStatus(id: string, dto: UpdateProductStatusDto, actorId?: string) {
-    await this.ensureExists(id);
+    const before = await this.ensureExists(id);
     const product = await this.prisma.product.update({
       where: { id },
       data: { status: dto.status, updatedById: actorId },
       include: this.includeRelations(),
+    });
+    await this.auditService.log({
+      actorId,
+      action: this.statusAuditAction(dto.status),
+      entityType: 'Product',
+      entityId: id,
+      metadata: this.auditService.buildChangeMetadata(
+        serializeProduct(before),
+        serializeProduct(product),
+      ),
     });
     return serializeProduct(product);
   }
@@ -170,7 +194,15 @@ export class ProductsService {
   private async ensureExists(id: string) {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },
+      include: this.includeRelations(),
     });
     if (!product) throw new NotFoundException('Product not found');
+    return product;
+  }
+
+  private statusAuditAction(status: PublishStatus) {
+    if (status === PublishStatus.PUBLISHED) return AuditAction.PUBLISH;
+    if (status === PublishStatus.ARCHIVED) return AuditAction.ARCHIVE;
+    return AuditAction.UPDATE;
   }
 }

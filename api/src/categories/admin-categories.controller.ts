@@ -30,13 +30,11 @@ export class AdminCategoriesController {
   }
 
   @Patch(':id')
-  @Audit({ action: AuditAction.UPDATE, entityType: 'Category' })
   update(@Param('id') id: string, @Body() dto: UpdateCategoryDto, @CurrentUser() user: { id: string }) {
     return this.categoriesService.update(id, dto, user.id);
   }
 
   @Patch(':id/status')
-  @Audit({ action: AuditAction.PUBLISH, entityType: 'Category' })
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto, @CurrentUser() user: { id: string }) {
     return this.categoriesService.updateStatus(id, dto, user.id);
   }

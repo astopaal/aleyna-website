@@ -30,13 +30,11 @@ export class AdminProductsController {
   }
 
   @Patch(':id')
-  @Audit({ action: AuditAction.UPDATE, entityType: 'Product' })
   update(@Param('id') id: string, @Body() dto: UpdateProductDto, @CurrentUser() user: { id: string }) {
     return this.productsService.update(id, dto, user.id);
   }
 
   @Patch(':id/status')
-  @Audit({ action: AuditAction.PUBLISH, entityType: 'Product' })
   updateStatus(@Param('id') id: string, @Body() dto: UpdateProductStatusDto, @CurrentUser() user: { id: string }) {
     return this.productsService.updateStatus(id, dto, user.id);
   }

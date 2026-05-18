@@ -1,12 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { AuditAction } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { AuditService } from '../audit/audit.service';
 import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   findActiveByEmail(email: string) {
     return this.prisma.user.findFirst({
@@ -58,12 +63,20 @@ export class UsersService {
   }
 
   async updateAdmin(id: string, dto: UpdateAdminUserDto, actorId: string) {
-    await this.ensureAdminExists(id);
-    return this.prisma.user.update({
+    const before = await this.ensureAdminExists(id);
+    const user = await this.prisma.user.update({
       where: { id },
       data: { ...dto, updatedById: actorId },
       select: this.publicUserSelect(),
     });
+    await this.auditService.log({
+      actorId,
+      action: AuditAction.UPDATE,
+      entityType: 'User',
+      entityId: id,
+      metadata: this.auditService.buildChangeMetadata(before, user),
+    });
+    return user;
   }
 
   async softDeleteAdmin(id: string, actorId: string) {
@@ -138,6 +151,7 @@ export class UsersService {
       where: { id, deletedAt: null },
     });
     if (!user) throw new NotFoundException('Admin user not found');
+    return user;
   }
 
   private publicUserSelect() {
