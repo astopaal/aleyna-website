@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaType {
+  IMAGE
+  DOCUMENT
+  VIDEO
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  PUBLISH
+  ARCHIVE
+  LOGIN
+  LOGOUT
+  REFRESH_REUSE_DETECTED
+}
+
+model User {
+  id                    String    @id @default(uuid()) @db.Uuid
+  email                 String    @unique
+  passwordHash          String
+  role                  UserRole  @default(EDITOR)
+  isActive              Boolean   @default(true)
+  lastLoginAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  createdById           String?   @db.Uuid
+  updatedById           String?   @db.Uuid
+  deletedById           String?   @db.Uuid
+  deletedAt             DateTime?
+
+  refreshSessions       RefreshSession[]
+  auditLogs             AuditLog[] @relation("AuditActor")
+
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model RefreshSession {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  tokenFamily  String    @db.Uuid
+  tokenHash    String
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  reusedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenFamily])
+  @@index([expiresAt])
+}
+
+model Product {
+  id             String            @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String
+  description    String?
+  stock          Int               @default(0)
+  priceCents     Int
+  status         PublishStatus     @default(DRAFT)
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String?
+  canonicalUrl   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  createdById    String?           @db.Uuid
+  updatedById    String?           @db.Uuid
+  deletedById    String?           @db.Uuid
+  deletedAt      DateTime?
+  categories     ProductCategory[]
+  images         ProductMedia[]
+
+  @@index([slug])
+  @@index([status, deletedAt])
+  @@index([createdAt])
+}
+
+model Category {
+  id             String            @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String
+  description    String?
+  status         PublishStatus     @default(PUBLISHED)
+  sortOrder      Int               @default(0)
+  parentId       String?           @db.Uuid
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  createdById    String?           @db.Uuid
+  updatedById    String?           @db.Uuid
+  deletedById    String?           @db.Uuid
+  deletedAt      DateTime?
+  parent         Category?         @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Category[]        @relation("CategoryTree")
+  products       ProductCategory[]
+
+  @@index([slug])
+  @@index([status, deletedAt])
+  @@index([parentId])
+  @@index([sortOrder])
+}
+
+model ProductCategory {
+  productId  String   @db.Uuid
+  categoryId String   @db.Uuid
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([categoryId])
+}
+
+model Media {
+  id            String         @id @default(uuid()) @db.Uuid
+  type          MediaType
+  bucket        String
+  key           String         @unique
+  url           String
+  originalName  String
+  mimeType      String
+  extension     String?
+  size          Int
+  width         Int?
+  height        Int?
+  altText       String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  createdById   String?        @db.Uuid
+  updatedById   String?        @db.Uuid
+  deletedById   String?        @db.Uuid
+  deletedAt     DateTime?
+  productImages ProductMedia[]
+  sliders       Slider[]
+  documents     Document[]
+
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model ProductMedia {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @db.Uuid
+  mediaId   String   @db.Uuid
+  sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, mediaId])
+  @@index([productId, sortOrder])
+  @@index([isPrimary])
+}
+
+model Slider {
+  id         String        @id @default(uuid()) @db.Uuid
+  title      String
+  subtitle   String?
+  linkUrl    String?
+  buttonText String?
+  mediaId    String?       @db.Uuid
+  status     PublishStatus @default(DRAFT)
+  sortOrder  Int           @default(0)
+  startsAt   DateTime?
+  endsAt     DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  createdById String?       @db.Uuid
+  updatedById String?       @db.Uuid
+  deletedById String?       @db.Uuid
+  deletedAt  DateTime?
+  media      Media?        @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([status, deletedAt])
+  @@index([sortOrder])
+  @@index([startsAt, endsAt])
+}
+
+model Document {
+  id             String        @id @default(uuid()) @db.Uuid
+  title          String
+  slug           String
+  description    String?
+  mediaId        String        @db.Uuid
+  status         PublishStatus @default(DRAFT)
+  sortOrder      Int           @default(0)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdById    String?       @db.Uuid
+  updatedById    String?       @db.Uuid
+  deletedById    String?       @db.Uuid
+  deletedAt      DateTime?
+  media          Media         @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@index([slug])
+  @@index([status, deletedAt])
+  @@index([sortOrder])
+}
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  actorId    String?     @db.Uuid
+  action     AuditAction
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  actor      User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}

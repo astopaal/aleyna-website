@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+uploads/
+api/node_modules/
+api/dist/
+api/coverage/
+api/.env
+api/.env.*
+!api/.env.example
