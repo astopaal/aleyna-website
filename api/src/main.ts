@@ -18,7 +18,11 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
   app.use(compression());
   app.enableCors({
     origin: corsOrigins.length ? corsOrigins : true,
