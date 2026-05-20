@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { AuditModule } from './audit/audit.module';
+import { createAdminPanelModule } from './admin-panel/admin-panel.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -23,6 +24,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { SlidersModule } from './sliders/sliders.module';
 import { ProductsModule } from './products/products.module';
 import { UsersModule } from './users/users.module';
+
+const AdminPanelModule = createAdminPanelModule();
 
 @Module({
   imports: [
@@ -92,6 +95,7 @@ import { UsersModule } from './users/users.module';
     SlidersModule,
     DocumentsModule,
     HealthModule,
+    AdminPanelModule,
   ],
   controllers: [AppController],
   providers: [

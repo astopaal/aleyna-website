@@ -26,4 +26,6 @@ export const envValidationSchema = Joi.object({
   WEBP_QUALITY: Joi.number().min(1).max(100).default(82),
   THROTTLE_TTL_MS: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(120),
+  ADMINJS_COOKIE_PASSWORD: Joi.string().min(32).default('change-me-adminjs-cookie-secret-32'),
+  ADMINJS_SESSION_SECRET: Joi.string().min(32).default('change-me-adminjs-session-secret-32'),
 });
