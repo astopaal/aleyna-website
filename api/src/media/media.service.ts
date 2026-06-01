@@ -107,4 +107,30 @@ export class MediaService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async findAll(query?: { page?: number; limit?: number }) {
+    const page = query?.page ?? 1;
+    const limit = query?.limit ?? 50;
+    const where = { deletedAt: null };
+    
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.media.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.media.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

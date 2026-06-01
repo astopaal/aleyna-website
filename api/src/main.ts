@@ -25,7 +25,14 @@ async function bootstrap() {
   );
   app.use(compression());
   app.enableCors({
-    origin: corsOrigins.length ? corsOrigins : true,
+    origin: (origin, callback) => {
+      // Allow any local origin in development
+      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        callback(null, true);
+      } else {
+        callback(null, corsOrigins.length ? corsOrigins : true);
+      }
+    },
     credentials: true,
   });
   app.useGlobalPipes(

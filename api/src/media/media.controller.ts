@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuditAction } from '@prisma/client';
 import { Audit } from '../common/decorators/audit.decorator';
@@ -16,6 +16,16 @@ import { MediaService } from './media.service';
 @Controller('api/admin/media')
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
+
+  @Get()
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  findAll(@Query() query: { page?: number; limit?: number }) {
+    return this.mediaService.findAll({
+      page: query.page ? Number(query.page) : undefined,
+      limit: query.limit ? Number(query.limit) : undefined,
+    });
+  }
 
   @Post('upload')
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
