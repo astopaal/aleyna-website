@@ -1,7 +1,8 @@
-import { Controller, Get, Param, Query, UseInterceptors } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Headers, Param, Query, UseInterceptors } from '@nestjs/common';
+import { ApiHeader, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { CacheControlInterceptor } from '../common/interceptors/cache-control.interceptor';
+import { resolveLocale } from '../common/utils/locale';
 import { ProductFilterDto } from './dto/product-filter.dto';
 import { ProductsService } from './products.service';
 
@@ -13,12 +14,24 @@ export class PublicProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  findPublished(@Query() query: ProductFilterDto) {
-    return this.productsService.findPublished(query);
+  @ApiQuery({ name: 'locale', required: false, example: 'tr' })
+  @ApiHeader({ name: 'Accept-Language', required: false, example: 'tr-TR,tr;q=0.9' })
+  findPublished(
+    @Query() query: ProductFilterDto,
+    @Query('locale') locale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    return this.productsService.findPublished(query, resolveLocale(locale, acceptLanguage));
   }
 
   @Get(':slug')
-  findPublishedBySlug(@Param('slug') slug: string) {
-    return this.productsService.findPublishedBySlug(slug);
+  @ApiQuery({ name: 'locale', required: false, example: 'tr' })
+  @ApiHeader({ name: 'Accept-Language', required: false, example: 'tr-TR,tr;q=0.9' })
+  findPublishedBySlug(
+    @Param('slug') slug: string,
+    @Query('locale') locale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    return this.productsService.findPublishedBySlug(slug, resolveLocale(locale, acceptLanguage));
   }
 }

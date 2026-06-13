@@ -7,4 +7,13 @@ export class ProductFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   categorySlug?: string;
+
+  @ApiPropertyOptional({ example: 'tr' })
+  @IsOptional()
+  @IsString()
+  locale?: string;
+
+  @ApiPropertyOptional({ example: 'true' })
+  @IsOptional()
+  isFeatured?: string | boolean;
 }

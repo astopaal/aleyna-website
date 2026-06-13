@@ -1,22 +1,32 @@
-export function serializeProduct(product: any) {
+import { getLocalizedFields, type SupportedLocale } from '../common/utils/locale';
+
+export function serializeProduct(product: any, locale?: SupportedLocale) {
+  const fields = locale ? getLocalizedFields(product.translations, locale) : {};
+
   return {
     id: product.id,
-    name: product.name,
+    name: fields.name || product.name,
     slug: product.slug,
-    description: product.description,
+    description: fields.description ?? product.description,
     stock: product.stock,
     priceCents: product.priceCents,
     status: product.status,
-    seoTitle: product.seoTitle,
-    seoDescription: product.seoDescription,
-    seoKeywords: product.seoKeywords,
-    canonicalUrl: product.canonicalUrl,
+    seoTitle: fields.seoTitle || product.seoTitle,
+    seoDescription: fields.seoDescription ?? product.seoDescription,
+    seoKeywords: fields.seoKeywords || product.seoKeywords,
+    canonicalUrl: fields.canonicalUrl || product.canonicalUrl,
+    translations: product.translations,
     categories:
-      product.categories?.map((item: any) => ({
-        id: item.category.id,
-        name: item.category.name,
-        slug: item.category.slug,
-      })) ?? [],
+      product.categories?.map((item: any) => {
+        const categoryFields = locale
+          ? getLocalizedFields(item.category.translations, locale)
+          : {};
+        return {
+          id: item.category.id,
+          name: categoryFields.name || item.category.name,
+          slug: item.category.slug,
+        };
+      }) ?? [],
     images:
       product.images?.map((item: any) => ({
         id: item.media.id,

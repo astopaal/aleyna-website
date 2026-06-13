@@ -3,6 +3,7 @@ import { AuditAction, Prisma, PublishStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { paginationMeta } from '../common/utils/paginate';
 import { slugify } from '../common/utils/slugify';
+import { type SupportedLocale } from '../common/utils/locale';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductFilterDto } from './dto/product-filter.dto';
@@ -17,24 +18,24 @@ export class ProductsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  findPublished(query: ProductFilterDto) {
+  findPublished(query: ProductFilterDto, locale?: SupportedLocale) {
     return this.findMany(query, {
       deletedAt: null,
       status: PublishStatus.PUBLISHED,
-    });
+    }, locale);
   }
 
   findAllForAdmin(query: ProductFilterDto) {
     return this.findMany(query, { deletedAt: null });
   }
 
-  async findPublishedBySlug(slug: string) {
+  async findPublishedBySlug(slug: string, locale?: SupportedLocale) {
     const product = await this.prisma.product.findFirst({
       where: { slug, deletedAt: null, status: PublishStatus.PUBLISHED },
       include: this.includeRelations(),
     });
     if (!product) throw new NotFoundException('Product not found');
-    return serializeProduct(product);
+    return serializeProduct(product, locale);
   }
 
   async create(dto: CreateProductDto, actorId?: string) {
@@ -43,10 +44,12 @@ export class ProductsService {
         name: dto.name,
         slug: dto.slug ?? slugify(dto.name),
         description: dto.description,
+        translations: dto.translations,
         stock: dto.stock,
         priceCents: dto.priceCents,
         seoTitle: dto.seoTitle,
         seoDescription: dto.seoDescription,
+        isFeatured: dto.isFeatured ?? false,
         createdById: actorId,
         updatedById: actorId,
         categories: {
@@ -83,10 +86,12 @@ export class ProductsService {
           name: dto.name,
           slug: dto.slug,
           description: dto.description,
+          translations: dto.translations,
           stock: dto.stock,
           priceCents: dto.priceCents,
           seoTitle: dto.seoTitle,
           seoDescription: dto.seoDescription,
+          isFeatured: dto.isFeatured,
           updatedById: actorId,
           categories: dto.categoryIds
             ? {
@@ -149,9 +154,13 @@ export class ProductsService {
   private async findMany(
     query: ProductFilterDto,
     baseWhere: Prisma.ProductWhereInput,
+    locale?: SupportedLocale,
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const categoryIds = query.categorySlug
+      ? await this.findCategoryAndDescendantIds(query.categorySlug)
+      : undefined;
     const where: Prisma.ProductWhereInput = {
       ...baseWhere,
       ...(query.search && {
@@ -162,8 +171,11 @@ export class ProductsService {
       }),
       ...(query.categorySlug && {
         categories: {
-          some: { category: { slug: query.categorySlug, deletedAt: null } },
+          some: { categoryId: { in: categoryIds } },
         },
+      }),
+      ...(query.isFeatured !== undefined && {
+        isFeatured: query.isFeatured === 'true' || query.isFeatured === true,
       }),
     };
 
@@ -178,7 +190,30 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { items: items.map(serializeProduct), meta: paginationMeta(page, limit, total) };
+    return { items: items.map((item) => serializeProduct(item, locale)), meta: paginationMeta(page, limit, total) };
+  }
+
+  private async findCategoryAndDescendantIds(slug: string) {
+    const category = await this.prisma.category.findFirst({
+      where: { slug, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!category) return [];
+
+    const ids = [category.id];
+    let parentIds = [category.id];
+
+    while (parentIds.length > 0) {
+      const children = await this.prisma.category.findMany({
+        where: { parentId: { in: parentIds }, deletedAt: null },
+        select: { id: true },
+      });
+      parentIds = children.map((child) => child.id);
+      ids.push(...parentIds);
+    }
+
+    return ids;
   }
 
   private includeRelations() {

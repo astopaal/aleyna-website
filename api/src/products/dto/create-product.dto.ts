@@ -4,6 +4,7 @@ import {
   ArrayUnique,
   IsArray,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -24,6 +25,16 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    example: {
+      en: { name: 'Culture Stone', description: 'Architectural wall surface' },
+      de: { name: 'Kulturstein', description: 'Architektonische Wandoberfläche' },
+    },
+  })
+  @IsOptional()
+  @IsObject()
+  translations?: Record<string, Record<string, string>>;
 
   @ApiProperty({ example: 25 })
   @Type(() => Number)
@@ -59,4 +70,8 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   seoDescription?: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  isFeatured?: boolean;
 }
