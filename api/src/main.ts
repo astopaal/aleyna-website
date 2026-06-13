@@ -27,10 +27,10 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       // Allow any local origin in development
-      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin.includes('ngrok-free.dev')) {
         callback(null, true);
       } else {
-        callback(null, corsOrigins.length ? corsOrigins : true);
+        callback(null, corsOrigins.length ? corsOrigins.includes(origin) : true);
       }
     },
     credentials: true,
