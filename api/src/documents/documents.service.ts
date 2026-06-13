@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UpdateStatusDto } from '../common/dto/update-status.dto';
 import { paginationMeta } from '../common/utils/paginate';
+import { getLocalizedFields, type SupportedLocale } from '../common/utils/locale';
 import { slugify } from '../common/utils/slugify';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -16,12 +17,14 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  findPublished() {
-    return this.prisma.document.findMany({
+  async findPublished(locale?: SupportedLocale) {
+    const documents = await this.prisma.document.findMany({
       where: { deletedAt: null, status: PublishStatus.PUBLISHED },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       include: { media: true },
     });
+
+    return documents.map((document) => this.serializeDocument(document, locale));
   }
 
   async findAllForAdmin(query: PaginationQueryDto) {
@@ -102,5 +105,17 @@ export class DocumentsService {
     if (status === PublishStatus.PUBLISHED) return AuditAction.PUBLISH;
     if (status === PublishStatus.ARCHIVED) return AuditAction.ARCHIVE;
     return AuditAction.UPDATE;
+  }
+
+  private serializeDocument(document: any, locale?: SupportedLocale) {
+    const fields = locale ? getLocalizedFields(document.translations, locale) : {};
+
+    return {
+      ...document,
+      title: fields.title || document.title,
+      description: fields.description ?? document.description,
+      seoTitle: fields.seoTitle || document.seoTitle,
+      seoDescription: fields.seoDescription ?? document.seoDescription,
+    };
   }
 }

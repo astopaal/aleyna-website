@@ -1,5 +1,43 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsObject, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
+
+class SliderTranslationDto {
+  @ApiPropertyOptional({ example: 'Premium natural stone' })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional({ example: 'Discover architectural surfaces' })
+  @IsOptional()
+  @IsString()
+  subtitle?: string;
+
+  @ApiPropertyOptional({ example: 'Explore Collection' })
+  @IsOptional()
+  @IsString()
+  buttonText?: string;
+}
+
+class SliderTranslationsDto {
+  @ApiPropertyOptional({ type: SliderTranslationDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SliderTranslationDto)
+  tr?: SliderTranslationDto;
+
+  @ApiPropertyOptional({ type: SliderTranslationDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SliderTranslationDto)
+  en?: SliderTranslationDto;
+
+  @ApiPropertyOptional({ type: SliderTranslationDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SliderTranslationDto)
+  de?: SliderTranslationDto;
+}
 
 export class CreateSliderDto {
   @ApiProperty({ example: 'Corporate solutions' })
@@ -20,6 +58,13 @@ export class CreateSliderDto {
   @IsOptional()
   @IsString()
   buttonText?: string;
+
+  @ApiPropertyOptional({ type: SliderTranslationsDto })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => SliderTranslationsDto)
+  translations?: SliderTranslationsDto;
 
   @ApiPropertyOptional()
   @IsOptional()

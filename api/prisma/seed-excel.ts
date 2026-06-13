@@ -1,12 +1,18 @@
 import { PrismaClient, PublishStatus, MediaType } from '@prisma/client';
-import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  CreateBucketCommand,
+  HeadBucketCommand,
+  PutBucketPolicyCommand,
+} from '@aws-sdk/client-s3';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const prisma = new PrismaClient();
 
 // 1. .env Dosyasını Okuma ve Ayarları Yükleme
-const envPath = path.join(__dirname, '../.env');
+const envPath = path.join(process.cwd(), '.env');
 const env: { [key: string]: string } = {};
 
 if (fs.existsSync(envPath)) {
@@ -22,13 +28,13 @@ if (fs.existsSync(envPath)) {
 }
 
 // S3 Ayarları
-const s3Endpoint = env['S3_ENDPOINT'] || 'http://localhost:9000';
-const s3Region = env['S3_REGION'] || 'us-east-1';
-const s3Bucket = env['S3_BUCKET'] || 'corporate-catalog';
-const s3AccessKey = env['S3_ACCESS_KEY'] || 'minio';
-const s3SecretKey = env['S3_SECRET_KEY'] || 'minio123';
-const s3ForcePathStyle = env['S3_FORCE_PATH_STYLE'] === 'true' || true;
-const s3PublicBaseUrl = (env['S3_PUBLIC_BASE_URL'] || 'http://localhost:9000/corporate-catalog').replace(/\/$/, '');
+const s3Endpoint = process.env['S3_ENDPOINT'] || env['S3_ENDPOINT'] || 'http://localhost:9000';
+const s3Region = process.env['S3_REGION'] || env['S3_REGION'] || 'us-east-1';
+const s3Bucket = process.env['S3_BUCKET'] || env['S3_BUCKET'] || 'corporate-catalog';
+const s3AccessKey = process.env['S3_ACCESS_KEY'] || env['S3_ACCESS_KEY'] || 'minio';
+const s3SecretKey = process.env['S3_SECRET_KEY'] || env['S3_SECRET_KEY'] || 'minio123';
+const s3ForcePathStyle = (process.env['S3_FORCE_PATH_STYLE'] || env['S3_FORCE_PATH_STYLE']) !== 'false';
+const s3PublicBaseUrl = (process.env['S3_PUBLIC_BASE_URL'] || env['S3_PUBLIC_BASE_URL'] || 'http://localhost:9000/corporate-catalog').replace(/\/$/, '');
 
 // S3 İstemcisi Kurulumu
 const s3Client = new S3Client({
@@ -128,6 +134,61 @@ const productsData = [
   { category: "MODÜLER TAŞLAR", name: "LAVİMAR", color: "BEYAZ", size: "KALINLIK : 20 mm / 45 mm", image: "DSCF2794" }
 ];
 
+type CategorySeed = {
+  name: string;
+  slug: string;
+  sortOrder: number;
+  parentSlug?: string;
+  legacySlugs?: string[];
+};
+
+const categorySeeds: CategorySeed[] = [
+  { name: "DOĞAL TAŞLAR", slug: "dogal-taslar", sortOrder: 0 },
+  { name: "MERMERLER", slug: "mermerler", sortOrder: 0, parentSlug: "dogal-taslar" },
+  { name: "KÜLTÜR TAŞLARI", slug: "kultur-taslari", sortOrder: 1 },
+  { name: "KÜLTÜR TAŞLARI", slug: "kultur-taslari-alt", sortOrder: 0, parentSlug: "kultur-taslari" },
+  { name: "KÜLTÜR TUĞLA", slug: "kultur-tugla", sortOrder: 1, parentSlug: "kultur-taslari", legacySlugs: ["tugla"] },
+  { name: "DÜZENSİZ TAŞLAR", slug: "duzensiz-taslar", sortOrder: 0, parentSlug: "kultur-taslari-alt" },
+  { name: "YASSI TAŞLAR", slug: "yassi-taslar", sortOrder: 1, parentSlug: "kultur-taslari-alt" },
+  { name: "MODÜLER TAŞLAR", slug: "moduler-taslar", sortOrder: 2, parentSlug: "kultur-taslari-alt" },
+];
+
+const productCategorySlugMap: Record<string, string> = {
+  "TUĞLA": "kultur-tugla",
+  "DÜZENSİZ TAŞLAR": "duzensiz-taslar",
+  "YASSI TAŞLAR": "yassi-taslar",
+  "MODÜLER TAŞLAR": "moduler-taslar",
+};
+
+async function seedCategories() {
+  const categoryMap = new Map<string, string>();
+
+  for (const seed of categorySeeds) {
+    const parentId = seed.parentSlug ? categoryMap.get(seed.parentSlug) : null;
+    const lookupSlugs = [seed.slug, ...(seed.legacySlugs ?? [])];
+    const existingCategory = await prisma.category.findFirst({
+      where: { deletedAt: null, slug: { in: lookupSlugs } },
+    });
+
+    const data = {
+      name: seed.name,
+      slug: seed.slug,
+      status: PublishStatus.PUBLISHED,
+      sortOrder: seed.sortOrder,
+      parentId,
+    };
+
+    const category = existingCategory
+      ? await prisma.category.update({ where: { id: existingCategory.id }, data })
+      : await prisma.category.create({ data });
+
+    categoryMap.set(seed.slug, category.id);
+    console.log(`Kategori hazır: ${seed.name} (${seed.slug})`);
+  }
+
+  return categoryMap;
+}
+
 async function main() {
   console.log('--- EXCEL ÜRÜN İTHALATI VE MINIO AKTARIMI BAŞLADI ---');
 
@@ -141,39 +202,37 @@ async function main() {
       await s3Client.send(new CreateBucketCommand({ Bucket: s3Bucket }));
       console.log(`MinIO Bucket başarıyla oluşturuldu: ${s3Bucket}`);
     } catch (createErr) {
-      console.error('Hata: MinIO Bucket oluşturulamadı! MinIO konteynerinin çalıştığından emin olun.', createErr);
+      console.error('Hata: MinIO Bucket oluşturulamadı!', createErr);
       process.exit(1);
     }
-  }
 
-  // 2. Benzersiz Kategorileri Belirle ve Kaydet
-  const uniqueCategories = Array.from(new Set(productsData.map(p => p.category)));
-  const categoryMap = new Map<string, string>(); // categoryName -> categoryId
+    try {
+      const policy = {
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Effect: 'Allow',
+            Principal: '*',
+            Action: ['s3:GetObject'],
+            Resource: [`arn:aws:s3:::${s3Bucket}/*`],
+          },
+        ],
+      };
 
-  for (const catName of uniqueCategories) {
-    const catSlug = generateSlug(catName);
-    
-    // Var olan kategoriyi kontrol et veya yeni oluştur
-    let category = await prisma.category.findFirst({
-      where: { slug: catSlug, deletedAt: null }
-    });
-
-    if (!category) {
-      category = await prisma.category.create({
-        data: {
-          name: catName,
-          slug: catSlug,
-          status: PublishStatus.PUBLISHED,
-          sortOrder: 0
-        }
-      });
-      console.log(`Kategori oluşturuldu: ${catName} (${catSlug})`);
-    } else {
-      console.log(`Kategori zaten var: ${catName}`);
+      await s3Client.send(
+        new PutBucketPolicyCommand({
+          Bucket: s3Bucket,
+          Policy: JSON.stringify(policy),
+        }),
+      );
+      console.log(`Bucket erişim izni 'Public' (Herkese Açık) olarak ayarlandı.`);
+    } catch (policyErr) {
+      console.warn('Uyarı: Bucket public policy ayarlanamadı, import devam ediyor.', policyErr);
     }
-    
-    categoryMap.set(catName, category.id);
   }
+
+  // 2. Kategori ağacını oluştur / güncelle
+  const categoryMap = await seedCategories(); // categorySlug -> categoryId
 
   // 3. Ürünleri, Resimleri Diskten Oku, MinIO'ya Yükle ve DB'ye Kaydet
   let importedCount = 0;
@@ -182,7 +241,8 @@ async function main() {
   for (const item of productsData) {
     const combinedName = `${item.name} - ${item.color}`;
     const productSlug = generateSlug(combinedName);
-    const categoryId = categoryMap.get(item.category);
+    const categorySlug = productCategorySlugMap[item.category];
+    const categoryId = categorySlug ? categoryMap.get(categorySlug) : undefined;
 
     if (!categoryId) {
       console.error(`Hata: ${item.category} kategorisi bulunamadı!`);
@@ -195,6 +255,19 @@ async function main() {
     });
 
     if (existingProduct) {
+      await prisma.productCategory.upsert({
+        where: {
+          productId_categoryId: {
+            productId: existingProduct.id,
+            categoryId,
+          },
+        },
+        update: {},
+        create: {
+          productId: existingProduct.id,
+          categoryId,
+        },
+      });
       console.log(`Ürün zaten kayıtlı (Atlanıyor): ${combinedName} (${productSlug})`);
       skippedCount++;
       continue;
@@ -207,7 +280,7 @@ async function main() {
     const mediaUrl = `${s3PublicBaseUrl}/${mediaKey}`; // Dinamik MinIO url'i
 
     // Fotoğrafın diskteki fiziksel konumunu belirle (be/api/img/ klasörü)
-    const localFilePath = path.join(__dirname, '../img', originalFilename);
+    const localFilePath = path.join(process.cwd(), 'img', originalFilename);
     let fileSize = 0;
     let fileBuffer: Buffer | null = null;
 

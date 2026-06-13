@@ -5,6 +5,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UpdateStatusDto } from '../common/dto/update-status.dto';
 import { paginationMeta } from '../common/utils/paginate';
 import { slugify } from '../common/utils/slugify';
+import { getLocalizedFields, type SupportedLocale } from '../common/utils/locale';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -16,12 +17,18 @@ export class CategoriesService {
     private readonly prisma: PrismaService,
   ) {}
 
-  findPublished() {
-    return this.prisma.category.findMany({
-      where: { deletedAt: null, status: PublishStatus.PUBLISHED },
+  async findPublished(locale?: SupportedLocale) {
+    const categories = await this.prisma.category.findMany({
+      where: {
+        deletedAt: null,
+        status: PublishStatus.PUBLISHED,
+        parentId: null,
+      },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { children: true },
+      include: this.categoryTreeInclude(),
     });
+
+    return categories.map((category) => this.serializeCategory(category, locale));
   }
 
   async findAllForAdmin(query: PaginationQueryDto) {
@@ -47,6 +54,7 @@ export class CategoriesService {
         name: dto.name,
         slug: dto.slug ?? slugify(dto.name),
         description: dto.description,
+        translations: dto.translations,
         parentId: dto.parentId,
         sortOrder: dto.sortOrder,
         createdById: actorId,
@@ -100,6 +108,42 @@ export class CategoriesService {
     });
     if (!category) throw new NotFoundException('Category not found');
     return category;
+  }
+
+  private categoryTreeInclude() {
+    return {
+      children: {
+        where: { deletedAt: null, status: PublishStatus.PUBLISHED },
+        orderBy: [{ sortOrder: 'asc' as const }, { name: 'asc' as const }],
+        include: {
+          children: {
+            where: { deletedAt: null, status: PublishStatus.PUBLISHED },
+            orderBy: [{ sortOrder: 'asc' as const }, { name: 'asc' as const }],
+            include: {
+              children: {
+                where: { deletedAt: null, status: PublishStatus.PUBLISHED },
+                orderBy: [{ sortOrder: 'asc' as const }, { name: 'asc' as const }],
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  private serializeCategory(category: any, locale?: SupportedLocale): any {
+    const fields = locale ? getLocalizedFields(category.translations, locale) : {};
+
+    return {
+      ...category,
+      name: fields.name || category.name,
+      description: fields.description ?? category.description,
+      seoTitle: fields.seoTitle || category.seoTitle,
+      seoDescription: fields.seoDescription ?? category.seoDescription,
+      children: (category.children ?? []).map((child: any) =>
+        this.serializeCategory(child, locale),
+      ),
+    };
   }
 
   private statusAuditAction(status: PublishStatus) {

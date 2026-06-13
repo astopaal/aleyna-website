@@ -39,39 +39,39 @@ enum AuditAction {
 }
 
 model User {
-  id                    String    @id @default(uuid()) @db.Uuid
-  email                 String    @unique
-  passwordHash          String
-  role                  UserRole  @default(EDITOR)
-  isActive              Boolean   @default(true)
-  lastLoginAt           DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  createdById           String?   @db.Uuid
-  updatedById           String?   @db.Uuid
-  deletedById           String?   @db.Uuid
-  deletedAt             DateTime?
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(EDITOR)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+  deletedById  String?   @db.Uuid
+  deletedAt    DateTime?
 
-  refreshSessions       RefreshSession[]
-  auditLogs             AuditLog[] @relation("AuditActor")
+  refreshSessions RefreshSession[]
+  auditLogs       AuditLog[]       @relation("AuditActor")
 
   @@index([role])
   @@index([deletedAt])
 }
 
 model RefreshSession {
-  id           String    @id @default(uuid()) @db.Uuid
-  userId       String    @db.Uuid
-  tokenFamily  String    @db.Uuid
-  tokenHash    String
-  userAgent    String?
-  ipAddress    String?
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  reusedAt     DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  tokenFamily String    @db.Uuid
+  tokenHash   String
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  reusedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tokenFamily])
@@ -83,9 +83,11 @@ model Product {
   name           String
   slug           String
   description    String?
+  translations   Json?
   stock          Int               @default(0)
   priceCents     Int
   status         PublishStatus     @default(DRAFT)
+  isFeatured     Boolean           @default(false)
   seoTitle       String?
   seoDescription String?
   seoKeywords    String?
@@ -109,6 +111,7 @@ model Category {
   name           String
   slug           String
   description    String?
+  translations   Json?
   status         PublishStatus     @default(PUBLISHED)
   sortOrder      Int               @default(0)
   parentId       String?           @db.Uuid
@@ -123,6 +126,7 @@ model Category {
   parent         Category?         @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children       Category[]        @relation("CategoryTree")
   products       ProductCategory[]
+  heroSections   HeroSection[]
 
   @@index([slug])
   @@index([status, deletedAt])
@@ -163,6 +167,9 @@ model Media {
   productImages ProductMedia[]
   sliders       Slider[]
   documents     Document[]
+  heroSections  HeroSection[]
+  blogs         Blog[]         @relation("BlogMedia")
+  projectImages ProjectMedia[]
 
   @@index([type])
   @@index([deletedAt])
@@ -184,23 +191,24 @@ model ProductMedia {
 }
 
 model Slider {
-  id         String        @id @default(uuid()) @db.Uuid
-  title      String
-  subtitle   String?
-  linkUrl    String?
-  buttonText String?
-  mediaId    String?       @db.Uuid
-  status     PublishStatus @default(DRAFT)
-  sortOrder  Int           @default(0)
-  startsAt   DateTime?
-  endsAt     DateTime?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  createdById String?       @db.Uuid
-  updatedById String?       @db.Uuid
-  deletedById String?       @db.Uuid
-  deletedAt  DateTime?
-  media      Media?        @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  subtitle     String?
+  translations Json?
+  linkUrl      String?
+  buttonText   String?
+  mediaId      String?       @db.Uuid
+  status       PublishStatus @default(DRAFT)
+  sortOrder    Int           @default(0)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  createdById  String?       @db.Uuid
+  updatedById  String?       @db.Uuid
+  deletedById  String?       @db.Uuid
+  deletedAt    DateTime?
+  media        Media?        @relation(fields: [mediaId], references: [id], onDelete: SetNull)
 
   @@index([status, deletedAt])
   @@index([sortOrder])
@@ -212,6 +220,7 @@ model Document {
   title          String
   slug           String
   description    String?
+  translations   Json?
   mediaId        String        @db.Uuid
   status         PublishStatus @default(DRAFT)
   sortOrder      Int           @default(0)
@@ -241,10 +250,99 @@ model AuditLog {
   userAgent  String?
   createdAt  DateTime    @default(now())
 
-  actor      User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([actorId])
   @@index([entityType, entityId])
   @@index([action])
   @@index([createdAt])
+}
+
+model HeroSection {
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  description  String?
+  translations Json?
+  linkUrl      String?
+  buttonText   String?
+  mediaId      String        @db.Uuid
+  categoryId   String?       @db.Uuid
+  status       PublishStatus @default(DRAFT)
+  sortOrder    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  createdById  String?       @db.Uuid
+  updatedById  String?       @db.Uuid
+  deletedById  String?       @db.Uuid
+  deletedAt    DateTime?
+
+  media    Media     @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([status, deletedAt])
+  @@index([sortOrder])
+}
+
+model Blog {
+  id             String        @id @default(uuid()) @db.Uuid
+  title          String
+  slug           String        @unique
+  content        String?
+  translations   Json?
+  mediaId        String?       @db.Uuid
+  status         PublishStatus @default(DRAFT)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdById    String?       @db.Uuid
+  updatedById    String?       @db.Uuid
+  deletedById    String?       @db.Uuid
+  deletedAt      DateTime?
+
+  media Media? @relation("BlogMedia", fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([slug])
+  @@index([status, deletedAt])
+  @@index([createdAt])
+}
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  title          String
+  slug           String        @unique
+  description    String?
+  translations   Json?
+  status         PublishStatus @default(DRAFT)
+  sortOrder      Int           @default(0)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdById    String?       @db.Uuid
+  updatedById    String?       @db.Uuid
+  deletedById    String?       @db.Uuid
+  deletedAt      DateTime?
+
+  images ProjectMedia[]
+
+  @@index([slug])
+  @@index([status, deletedAt])
+  @@index([sortOrder])
+}
+
+model ProjectMedia {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  mediaId   String   @db.Uuid
+  sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  media   Media   @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, mediaId])
+  @@index([projectId, sortOrder])
+  @@index([isPrimary])
 }

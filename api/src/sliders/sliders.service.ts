@@ -1,12 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { AuditAction, PublishStatus } from '@prisma/client';
+import { AuditAction, Prisma, PublishStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UpdateStatusDto } from '../common/dto/update-status.dto';
 import { paginationMeta } from '../common/utils/paginate';
+import { type SupportedLocale } from '../common/utils/locale';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSliderDto } from './dto/create-slider.dto';
 import { UpdateSliderDto } from './dto/update-slider.dto';
+
+type SliderTranslation = {
+  title?: string;
+  subtitle?: string | null;
+  buttonText?: string | null;
+};
+
+type SliderTranslations = Partial<Record<SupportedLocale, SliderTranslation>>;
+
+type SliderWithMedia = Prisma.SliderGetPayload<{ include: { media: true } }>;
 
 @Injectable()
 export class SlidersService {
@@ -15,9 +26,9 @@ export class SlidersService {
     private readonly prisma: PrismaService,
   ) {}
 
-  findPublished() {
+  async findPublished(locale: SupportedLocale) {
     const now = new Date();
-    return this.prisma.slider.findMany({
+    const sliders = await this.prisma.slider.findMany({
       where: {
         deletedAt: null,
         status: PublishStatus.PUBLISHED,
@@ -27,6 +38,8 @@ export class SlidersService {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       include: { media: true },
     });
+
+    return sliders.map((slider) => this.serializePublicSlider(slider, locale));
   }
 
   async findAllForAdmin(query: PaginationQueryDto) {
@@ -48,7 +61,17 @@ export class SlidersService {
 
   create(dto: CreateSliderDto, actorId?: string) {
     return this.prisma.slider.create({
-      data: { ...dto, createdById: actorId, updatedById: actorId },
+      data: {
+        title: dto.title,
+        subtitle: dto.subtitle,
+        linkUrl: dto.linkUrl,
+        buttonText: dto.buttonText,
+        translations: this.sanitizeTranslations(dto.translations),
+        mediaId: dto.mediaId,
+        sortOrder: dto.sortOrder,
+        createdById: actorId,
+        updatedById: actorId,
+      },
       include: { media: true },
     });
   }
@@ -58,7 +81,16 @@ export class SlidersService {
       const before = await tx.slider.findUnique({ where: { id }, include: { media: true } });
       const slider = await tx.slider.update({
       where: { id },
-      data: { ...dto, updatedById: actorId },
+      data: {
+        title: dto.title,
+        subtitle: dto.subtitle,
+        linkUrl: dto.linkUrl,
+        buttonText: dto.buttonText,
+        translations: this.sanitizeTranslations(dto.translations),
+        mediaId: dto.mediaId,
+        sortOrder: dto.sortOrder,
+        updatedById: actorId,
+      },
       include: { media: true },
     });
       await this.auditService.log({
@@ -102,5 +134,43 @@ export class SlidersService {
     if (status === PublishStatus.PUBLISHED) return AuditAction.PUBLISH;
     if (status === PublishStatus.ARCHIVED) return AuditAction.ARCHIVE;
     return AuditAction.UPDATE;
+  }
+
+  private serializePublicSlider(slider: SliderWithMedia, locale: SupportedLocale) {
+    const translation = this.getTranslation(slider.translations, locale);
+
+    return {
+      ...slider,
+      title: translation?.title || slider.title,
+      subtitle: translation?.subtitle ?? slider.subtitle,
+      buttonText: translation?.buttonText ?? slider.buttonText,
+      locale,
+    };
+  }
+
+  private getTranslation(value: Prisma.JsonValue | null, locale: SupportedLocale) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+
+    const translations = value as SliderTranslations;
+    return translations[locale];
+  }
+
+  private sanitizeTranslations(value?: SliderTranslations): Prisma.InputJsonValue | undefined {
+    if (!value) return undefined;
+
+    const translations: SliderTranslations = {};
+
+    for (const locale of Object.keys(value) as SupportedLocale[]) {
+      const translation = value[locale];
+      if (!translation) continue;
+
+      translations[locale] = {
+        ...(translation.title !== undefined && { title: translation.title }),
+        ...(translation.subtitle !== undefined && { subtitle: translation.subtitle }),
+        ...(translation.buttonText !== undefined && { buttonText: translation.buttonText }),
+      };
+    }
+
+    return translations as Prisma.InputJsonValue;
   }
 }

@@ -1,7 +1,8 @@
-import { Controller, Get, UseInterceptors } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Headers, Query, UseInterceptors } from '@nestjs/common';
+import { ApiHeader, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { CacheControlInterceptor } from '../common/interceptors/cache-control.interceptor';
+import { resolveLocale } from '../common/utils/locale';
 import { DocumentsService } from './documents.service';
 
 @Public()
@@ -12,7 +13,12 @@ export class PublicDocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Get()
-  findPublished() {
-    return this.documentsService.findPublished();
+  @ApiQuery({ name: 'locale', required: false, example: 'tr' })
+  @ApiHeader({ name: 'Accept-Language', required: false, example: 'tr-TR,tr;q=0.9' })
+  findPublished(
+    @Query('locale') locale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    return this.documentsService.findPublished(resolveLocale(locale, acceptLanguage));
   }
 }

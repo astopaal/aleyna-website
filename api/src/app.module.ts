@@ -23,6 +23,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { SlidersModule } from './sliders/sliders.module';
 import { ProductsModule } from './products/products.module';
 import { UsersModule } from './users/users.module';
+import { HeroModule } from './hero/hero.module';
+import { BlogModule } from './blog/blog.module';
+import { ProjectModule } from './project/project.module';
 
 @Module({
   imports: [
@@ -90,8 +93,11 @@ import { UsersModule } from './users/users.module';
     ProductsModule,
     CategoriesModule,
     SlidersModule,
+    HeroModule,
     DocumentsModule,
     HealthModule,
+    BlogModule,
+    ProjectModule,
   ],
   controllers: [AppController],
   providers: [

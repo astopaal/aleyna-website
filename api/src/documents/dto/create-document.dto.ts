@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsInt, IsObject, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class CreateDocumentDto {
   @ApiProperty({ example: 'Product Brochure' })
@@ -15,6 +15,16 @@ export class CreateDocumentDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    example: {
+      en: { title: 'Catalog', description: 'Product catalog' },
+      de: { title: 'Katalog', description: 'Produktkatalog' },
+    },
+  })
+  @IsOptional()
+  @IsObject()
+  translations?: Record<string, Record<string, string>>;
 
   @ApiProperty()
   @IsUUID('4')
