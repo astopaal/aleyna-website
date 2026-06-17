@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ContentTargetType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsInt, IsObject, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
+import { IsEnum, IsInt, IsObject, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 
 class SliderTranslationDto {
   @ApiPropertyOptional({ example: 'Premium natural stone' })
@@ -53,6 +54,26 @@ export class CreateSliderDto {
   @IsOptional()
   @IsString()
   linkUrl?: string;
+
+  @ApiPropertyOptional({ enum: ContentTargetType })
+  @IsOptional()
+  @IsEnum(ContentTargetType)
+  targetType?: ContentTargetType;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID('4')
+  targetProductId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID('4')
+  targetCategoryId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

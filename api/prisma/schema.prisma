@@ -38,6 +38,13 @@ enum AuditAction {
   REFRESH_REUSE_DETECTED
 }
 
+enum ContentTargetType {
+  NONE
+  PRODUCT
+  CATEGORY
+  CUSTOM
+}
+
 model User {
   id           String    @id @default(uuid()) @db.Uuid
   email        String    @unique
@@ -100,6 +107,8 @@ model Product {
   deletedAt      DateTime?
   categories     ProductCategory[]
   images         ProductMedia[]
+  sliderTargets  Slider[]          @relation("SliderTargetProduct")
+  heroTargets    HeroSection[]     @relation("HeroTargetProduct")
 
   @@index([slug])
   @@index([status, deletedAt])
@@ -127,6 +136,8 @@ model Category {
   children       Category[]        @relation("CategoryTree")
   products       ProductCategory[]
   heroSections   HeroSection[]
+  sliderTargets  Slider[]          @relation("SliderTargetCategory")
+  heroTargets    HeroSection[]     @relation("HeroTargetCategory")
 
   @@index([slug])
   @@index([status, deletedAt])
@@ -196,6 +207,10 @@ model Slider {
   subtitle     String?
   translations Json?
   linkUrl      String?
+  targetType   ContentTargetType @default(NONE)
+  targetProductId  String?       @db.Uuid
+  targetCategoryId String?       @db.Uuid
+  customUrl    String?
   buttonText   String?
   mediaId      String?       @db.Uuid
   status       PublishStatus @default(DRAFT)
@@ -209,10 +224,15 @@ model Slider {
   deletedById  String?       @db.Uuid
   deletedAt    DateTime?
   media        Media?        @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  targetProduct  Product?    @relation("SliderTargetProduct", fields: [targetProductId], references: [id], onDelete: SetNull)
+  targetCategory Category?   @relation("SliderTargetCategory", fields: [targetCategoryId], references: [id], onDelete: SetNull)
 
   @@index([status, deletedAt])
   @@index([sortOrder])
   @@index([startsAt, endsAt])
+  @@index([targetType])
+  @@index([targetProductId])
+  @@index([targetCategoryId])
 }
 
 model Document {
@@ -264,6 +284,10 @@ model HeroSection {
   description  String?
   translations Json?
   linkUrl      String?
+  targetType   ContentTargetType @default(NONE)
+  targetProductId  String?       @db.Uuid
+  targetCategoryId String?       @db.Uuid
+  customUrl    String?
   buttonText   String?
   mediaId      String        @db.Uuid
   categoryId   String?       @db.Uuid
@@ -278,9 +302,14 @@ model HeroSection {
 
   media    Media     @relation(fields: [mediaId], references: [id], onDelete: Restrict)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  targetProduct  Product?  @relation("HeroTargetProduct", fields: [targetProductId], references: [id], onDelete: SetNull)
+  targetCategory Category? @relation("HeroTargetCategory", fields: [targetCategoryId], references: [id], onDelete: SetNull)
 
   @@index([status, deletedAt])
   @@index([sortOrder])
+  @@index([targetType])
+  @@index([targetProductId])
+  @@index([targetCategoryId])
 }
 
 model Blog {

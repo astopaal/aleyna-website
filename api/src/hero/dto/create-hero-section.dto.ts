@@ -1,4 +1,5 @@
-import { IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { ContentTargetType } from '@prisma/client';
+import { IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateHeroSectionDto {
@@ -21,6 +22,26 @@ export class CreateHeroSectionDto {
   @IsString()
   @IsOptional()
   linkUrl?: string;
+
+  @ApiPropertyOptional({ enum: ContentTargetType })
+  @IsEnum(ContentTargetType)
+  @IsOptional()
+  targetType?: ContentTargetType;
+
+  @ApiPropertyOptional()
+  @IsUUID()
+  @IsOptional()
+  targetProductId?: string;
+
+  @ApiPropertyOptional()
+  @IsUUID()
+  @IsOptional()
+  targetCategoryId?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  customUrl?: string;
 
   @ApiPropertyOptional()
   @IsString()

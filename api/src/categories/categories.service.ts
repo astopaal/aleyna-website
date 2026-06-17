@@ -137,6 +137,7 @@ export class CategoriesService {
     return {
       ...category,
       name: fields.name || category.name,
+      slug: fields.slug || category.slug,
       description: fields.description ?? category.description,
       seoTitle: fields.seoTitle || category.seoTitle,
       seoDescription: fields.seoDescription ?? category.seoDescription,

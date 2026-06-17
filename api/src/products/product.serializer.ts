@@ -6,7 +6,7 @@ export function serializeProduct(product: any, locale?: SupportedLocale) {
   return {
     id: product.id,
     name: fields.name || product.name,
-    slug: product.slug,
+    slug: fields.slug || product.slug,
     description: fields.description ?? product.description,
     stock: product.stock,
     priceCents: product.priceCents,
@@ -24,7 +24,7 @@ export function serializeProduct(product: any, locale?: SupportedLocale) {
         return {
           id: item.category.id,
           name: categoryFields.name || item.category.name,
-          slug: item.category.slug,
+          slug: categoryFields.slug || item.category.slug,
         };
       }) ?? [],
     images:
