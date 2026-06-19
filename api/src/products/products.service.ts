@@ -159,7 +159,7 @@ export class ProductsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const categoryIds = query.categorySlug
-      ? await this.findCategoryAndDescendantIds(query.categorySlug)
+      ? await this.findCategoryAndDescendantIds(query.categorySlug, locale)
       : undefined;
     const where: Prisma.ProductWhereInput = {
       ...baseWhere,
@@ -193,9 +193,26 @@ export class ProductsService {
     return { items: items.map((item) => serializeProduct(item, locale)), meta: paginationMeta(page, limit, total) };
   }
 
-  private async findCategoryAndDescendantIds(slug: string) {
+  private async findCategoryAndDescendantIds(
+    slug: string,
+    locale?: SupportedLocale,
+  ) {
+    const slugFilters: Prisma.CategoryWhereInput[] = [{ slug }];
+
+    if (locale) {
+      slugFilters.push({
+        translations: {
+          path: [locale, 'slug'],
+          equals: slug,
+        },
+      });
+    }
+
     const category = await this.prisma.category.findFirst({
-      where: { slug, deletedAt: null },
+      where: {
+        deletedAt: null,
+        OR: slugFilters,
+      },
       select: { id: true },
     });
 
