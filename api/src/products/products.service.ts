@@ -31,7 +31,15 @@ export class ProductsService {
 
   async findPublishedBySlug(slug: string, locale?: SupportedLocale) {
     const product = await this.prisma.product.findFirst({
-      where: { slug, deletedAt: null, status: PublishStatus.PUBLISHED },
+      where: {
+        OR: [
+          { slug },
+          { translations: { path: ['en', 'slug'], equals: slug } },
+          { translations: { path: ['de', 'slug'], equals: slug } },
+        ],
+        deletedAt: null,
+        status: PublishStatus.PUBLISHED,
+      },
       include: this.includeRelations(),
     });
     if (!product) throw new NotFoundException('Product not found');
