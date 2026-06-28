@@ -248,6 +248,16 @@ export class ProductsService {
         orderBy: [{ isPrimary: 'desc' as const }, { sortOrder: 'asc' as const }],
         include: { media: true },
       },
+      variants: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: 'asc' as const },
+        include: {
+          images: {
+            orderBy: [{ isPrimary: 'desc' as const }, { sortOrder: 'asc' as const }],
+            include: { media: true },
+          },
+        },
+      },
     };
   }
 

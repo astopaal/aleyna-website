@@ -37,6 +37,28 @@ export function serializeProduct(product: any, locale?: SupportedLocale) {
         sortOrder: item.sortOrder,
         isPrimary: item.isPrimary,
       })) ?? [],
+    variants:
+      product.variants?.map((variant: any) => {
+        const variantFields = locale ? getLocalizedFields(variant.translations, locale) : {};
+        return {
+          id: variant.id,
+          name: variantFields.name || variant.name,
+          slug: variantFields.slug || variant.slug,
+          description: variantFields.description ?? variant.description,
+          stock: variant.stock,
+          priceCents: variant.priceCents,
+          status: variant.status,
+          images: variant.images?.map((item: any) => ({
+            id: item.media.id,
+            url: item.media.url,
+            altText: item.media.altText,
+            width: item.media.width,
+            height: item.media.height,
+            sortOrder: item.sortOrder,
+            isPrimary: item.isPrimary,
+          })) ?? [],
+        };
+      }) ?? [],
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };
