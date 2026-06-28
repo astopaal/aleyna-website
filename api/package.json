@@ -23,6 +23,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "ts-node prisma/seed.ts",
+    "migrate:variants": "ts-node prisma/migrate-variants.ts",
     "db:deploy": "prisma migrate deploy",
     "logs:stack": "docker compose up -d loki promtail grafana",
     "logs:api": "docker compose logs -f api",
