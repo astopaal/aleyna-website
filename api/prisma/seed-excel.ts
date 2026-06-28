@@ -262,6 +262,8 @@ async function main() {
           name: parentName,
           slug: parentSlug,
           description: '',
+          priceCents: 0,
+          stock: 0,
           status: PublishStatus.PUBLISHED,
           categories: {
             create: {
@@ -347,7 +349,7 @@ async function main() {
           mimeType: 'image/webp',
           extension: 'webp',
           size: fileSize,
-          altText: combinedName
+          altText: item.title
         }
       });
     }
