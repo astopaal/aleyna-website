@@ -141,11 +141,11 @@ export class ProductsService {
             await tx.productVariant.create({
               data: {
                 productId: id,
-                name: variant.name,
-                slug: variant.slug || slugify(`${dto.name || before.name}-${variant.name}`),
+                name: variant.name || 'Yeni Varyant',
+                slug: variant.slug || slugify(`${dto.name || before.name}-${variant.name || 'yeni'}`),
                 description: variant.description,
-                stock: variant.stock,
-                priceCents: variant.priceCents,
+                stock: variant.stock ?? 0,
+                priceCents: variant.priceCents ?? 0,
                 images: variant.imageIds?.length
                   ? {
                       create: variant.imageIds.map((mediaId, index) => ({

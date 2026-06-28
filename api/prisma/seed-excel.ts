@@ -349,7 +349,7 @@ async function main() {
           mimeType: 'image/webp',
           extension: 'webp',
           size: fileSize,
-          altText: item.title
+          altText: item.name
         }
       });
     }
