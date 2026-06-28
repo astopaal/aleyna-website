@@ -239,8 +239,10 @@ async function main() {
   let skippedCount = 0;
 
   for (const item of productsData) {
-    const combinedName = `${item.name} - ${item.color}`;
-    const productSlug = generateSlug(combinedName);
+    const parentName = item.name;
+    const parentSlug = generateSlug(parentName);
+    const variantName = item.color;
+    const variantSlug = generateSlug(`${parentName} ${variantName}`);
     const categorySlug = productCategorySlugMap[item.category];
     const categoryId = categorySlug ? categoryMap.get(categorySlug) : undefined;
 
@@ -249,26 +251,48 @@ async function main() {
       continue;
     }
 
-    // Ürün zaten var mı kontrol et
-    const existingProduct = await prisma.product.findFirst({
-      where: { slug: productSlug, deletedAt: null }
+    // Ürün (Parent) zaten var mı kontrol et
+    let parentProduct = await prisma.product.findFirst({
+      where: { slug: parentSlug, deletedAt: null }
     });
 
-    if (existingProduct) {
+    if (!parentProduct) {
+      parentProduct = await prisma.product.create({
+        data: {
+          name: parentName,
+          slug: parentSlug,
+          description: '',
+          status: PublishStatus.PUBLISHED,
+          categories: {
+            create: {
+              categoryId: categoryId
+            }
+          }
+        }
+      });
+    } else {
       await prisma.productCategory.upsert({
         where: {
           productId_categoryId: {
-            productId: existingProduct.id,
+            productId: parentProduct.id,
             categoryId,
           },
         },
         update: {},
         create: {
-          productId: existingProduct.id,
+          productId: parentProduct.id,
           categoryId,
         },
       });
-      console.log(`Ürün zaten kayıtlı (Atlanıyor): ${combinedName} (${productSlug})`);
+    }
+
+    // Variant zaten var mı kontrol et
+    const existingVariant = await prisma.productVariant.findFirst({
+      where: { slug: variantSlug, deletedAt: null }
+    });
+
+    if (existingVariant) {
+      console.log(`Varyant zaten kayıtlı (Atlanıyor): ${parentName} - ${variantName} (${variantSlug})`);
       skippedCount++;
       continue;
     }
@@ -328,20 +352,16 @@ async function main() {
       });
     }
 
-    // Ürünü oluştur ve Kategori & Medya ile ilişkilendir
-    await prisma.product.create({
+    // Varyantı oluştur ve Medya ile ilişkilendir
+    await prisma.productVariant.create({
       data: {
-        name: combinedName,
-        slug: productSlug,
+        productId: parentProduct.id,
+        name: variantName,
+        slug: variantSlug,
         description: description,
         stock: 100, // Varsayılan stok değeri
         priceCents: 0, // Katalog yapısı olduğu için fiyat 0
         status: PublishStatus.PUBLISHED,
-        categories: {
-          create: {
-            categoryId: categoryId
-          }
-        },
         images: {
           create: {
             mediaId: media.id,
@@ -352,7 +372,7 @@ async function main() {
       }
     });
 
-    console.log(`Ürün başarıyla aktarıldı: ${combinedName} -> MinIO: ${mediaUrl}`);
+    console.log(`Varyant başarıyla aktarıldı: ${parentName} - ${variantName} -> MinIO: ${mediaUrl}`);
     importedCount++;
   }
 
