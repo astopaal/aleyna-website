@@ -9,7 +9,43 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
+
+export class CreateProductVariantDto {
+  @ApiProperty({ example: 'Red' })
+  @IsString()
+  name: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ example: 10 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  stock: number;
+
+  @ApiProperty({ example: 9999 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  priceCents: number;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  imageIds?: string[];
+}
 
 export class CreateProductDto {
   @ApiProperty({ example: 'Industrial Pump X120' })
@@ -74,4 +110,11 @@ export class CreateProductDto {
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   isFeatured?: boolean;
+
+  @ApiPropertyOptional({ type: [CreateProductVariantDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProductVariantDto)
+  variants?: CreateProductVariantDto[];
 }

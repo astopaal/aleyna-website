@@ -72,6 +72,26 @@ export class ProductsService {
               })),
             }
           : undefined,
+        variants: dto.variants?.length
+          ? {
+              create: dto.variants.map((v) => ({
+                name: v.name,
+                slug: v.slug || slugify(`${dto.name}-${v.name}`),
+                description: v.description,
+                stock: v.stock,
+                priceCents: v.priceCents,
+                images: v.imageIds?.length
+                  ? {
+                      create: v.imageIds.map((mediaId, index) => ({
+                        mediaId,
+                        sortOrder: index,
+                        isPrimary: index === 0,
+                      })),
+                    }
+                  : undefined,
+              })),
+            }
+          : undefined,
       },
       include: this.includeRelations(),
     });
@@ -86,6 +106,59 @@ export class ProductsService {
       }
       if (dto.imageIds) {
         await tx.productMedia.deleteMany({ where: { productId: id } });
+      }
+      if (dto.variants !== undefined) {
+        const variantIdsToKeep = dto.variants.filter((v) => v.id).map((v) => v.id as string);
+        await tx.productVariant.deleteMany({
+          where: { productId: id, id: { notIn: variantIdsToKeep } },
+        });
+
+        for (const variant of dto.variants) {
+          if (variant.id) {
+            if (variant.imageIds) {
+              await tx.productVariantMedia.deleteMany({ where: { productVariantId: variant.id } });
+            }
+            await tx.productVariant.update({
+              where: { id: variant.id },
+              data: {
+                name: variant.name,
+                slug: variant.slug,
+                description: variant.description,
+                stock: variant.stock,
+                priceCents: variant.priceCents,
+                images: variant.imageIds
+                  ? {
+                      create: variant.imageIds.map((mediaId, index) => ({
+                        mediaId,
+                        sortOrder: index,
+                        isPrimary: index === 0,
+                      })),
+                    }
+                  : undefined,
+              },
+            });
+          } else {
+            await tx.productVariant.create({
+              data: {
+                productId: id,
+                name: variant.name,
+                slug: variant.slug || slugify(`${dto.name || before.name}-${variant.name}`),
+                description: variant.description,
+                stock: variant.stock,
+                priceCents: variant.priceCents,
+                images: variant.imageIds?.length
+                  ? {
+                      create: variant.imageIds.map((mediaId, index) => ({
+                        mediaId,
+                        sortOrder: index,
+                        isPrimary: index === 0,
+                      })),
+                    }
+                  : undefined,
+              },
+            });
+          }
+        }
       }
 
       return tx.product.update({
