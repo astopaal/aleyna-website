@@ -68,6 +68,7 @@ export class ProductsService {
         seoTitle: dto.seoTitle,
         seoDescription: dto.seoDescription,
         isFeatured: dto.isFeatured ?? false,
+        status: dto.status,
         createdById: actorId,
         updatedById: actorId,
         categories: {
@@ -193,6 +194,7 @@ export class ProductsService {
           seoTitle: dto.seoTitle,
           seoDescription: dto.seoDescription,
           isFeatured: dto.isFeatured,
+          status: dto.status,
           updatedById: actorId,
           categories: dto.categoryIds
             ? {

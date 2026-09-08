@@ -10,7 +10,9 @@ import {
   IsUUID,
   Min,
   ValidateNested,
+  IsEnum,
 } from 'class-validator';
+import { PublishStatus } from '@prisma/client';
 
 export class CreateProductVariantDto {
   @ApiProperty({ example: 'Red' })
@@ -110,6 +112,11 @@ export class CreateProductDto {
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   isFeatured?: boolean;
+
+  @ApiPropertyOptional({ enum: PublishStatus })
+  @IsOptional()
+  @IsEnum(PublishStatus)
+  status?: PublishStatus;
 
   @ApiPropertyOptional({ type: [CreateProductVariantDto] })
   @IsOptional()
