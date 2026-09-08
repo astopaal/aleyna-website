@@ -47,12 +47,22 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto, actorId?: string) {
+    let translations = dto.translations as any;
+    if (translations && typeof translations === 'object' && !Array.isArray(translations)) {
+      translations = { ...translations };
+      for (const locale in translations) {
+        if (translations[locale]?.name && !translations[locale]?.slug) {
+          translations[locale].slug = slugify(translations[locale].name);
+        }
+      }
+    }
+
     const product = await this.prisma.product.create({
       data: {
         name: dto.name,
         slug: dto.slug ?? slugify(dto.name),
         description: dto.description,
-        translations: dto.translations,
+        translations: translations,
         stock: dto.stock,
         priceCents: dto.priceCents,
         seoTitle: dto.seoTitle,
@@ -99,6 +109,16 @@ export class ProductsService {
   }
 
   async update(id: string, dto: UpdateProductDto, actorId?: string) {
+    let translations = dto.translations as any;
+    if (translations && typeof translations === 'object' && !Array.isArray(translations)) {
+      translations = { ...translations };
+      for (const locale in translations) {
+        if (translations[locale]?.name && !translations[locale]?.slug) {
+          translations[locale].slug = slugify(translations[locale].name);
+        }
+      }
+    }
+
     const before = await this.ensureExists(id);
     const product = await this.prisma.$transaction(async (tx) => {
       if (dto.categoryIds) {
@@ -167,7 +187,7 @@ export class ProductsService {
           name: dto.name,
           slug: dto.slug,
           description: dto.description,
-          translations: dto.translations,
+          translations: translations,
           stock: dto.stock,
           priceCents: dto.priceCents,
           seoTitle: dto.seoTitle,
